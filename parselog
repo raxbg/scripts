@@ -1,0 +1,12 @@
+#!/bin/bash
+USAGE="Usage: parselog [infile [ofile]]"
+
+if [ -z $1 ]; then
+	echo $USAGE;
+fi
+
+if [[ -n $1 && -n $2 ]]; then
+	sort -k5 $1 | uniq -f 4 -c - | sort -r > $2
+elif [[ -n $1 && -z $2 ]]; then
+	sort -k5 $1 | uniq -f 4 -c - | sort -r
+fi

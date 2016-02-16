@@ -1,0 +1,93 @@
+#!/usr/local/bin/php
+<?php
+define('DS', DIRECTORY_SEPARATOR);
+
+function display_help($scriptname) {
+    echo "$scriptname [repo_dir] [dev_dir] [[ignores]]\n";
+}
+
+function is_ignored($entry, $ignores) {
+    foreach ($ignores as $ignore) {
+        if (preg_match('@^' . str_replace('___match_all___', '.*?', preg_quote(str_replace('*', '___match_all___', $ignore), '@')) . '$@', $entry)) return true;
+    }
+    return false;
+}
+
+function check_dir($src, &$cache, $base, $dest, &$updates) {
+    global $ignores;
+    $dir = rtrim($src, DS);
+    $entries = scandir($dir);
+
+    foreach ($entries as $entry) {
+        if (is_ignored($entry, $ignores)) continue;
+
+        $path = $dir . DS . $entry;
+        if (is_dir($path)) {
+            check_dir($path, $cache, $base, $dest, $updates);
+        } else {
+            $fmtime = @filemtime($path);
+            if (!$fmtime) $fmtime = 0;
+            if (!isset($cache[$path])) {
+                $cache[$path] = $fmtime;
+            }
+            $timestamp = $cache[$path];
+
+            if ($fmtime > $timestamp) {
+               $rel_path = trim(preg_replace('@^' . $base . '@', '', $path), DS);
+               if (in_array($rel_path, $updates) || is_ignored($rel_path, $ignores)) continue;
+
+               $dest_path = rtrim($dest, DS) . DS . $rel_path;
+               if (!file_exists($dest_path) || $fmtime > $dest_path) {
+                   if (!file_exists(dirname($dest_path))) {
+                       @mkdir(dirname($dest_path), 0755, true);
+                   }
+                   @copy($path, $dest_path);
+                   $updates[] = $rel_path;
+                   $was_move_initiated = true;
+                   $cache[$path] = $fmtime;
+                   echo "$path => $dest_path\n";
+               }
+            }
+        }
+    }
+}
+
+if ($argc < 3) {
+    display_help(basename($argv[0]));
+    exit;
+}
+
+$git_dir = $argv[1];
+$dev_dir = $argv[2];
+
+if (!file_exists($git_dir)) {
+    echo "$git_dir does not exists\n";
+    exit;
+}
+
+if (!file_exists($dev_dir)) {
+    echo "$dev_dir does not exists\n";
+    exit;
+}
+
+$lastsync_git = $lastsync_dev = time();
+$cache_git = $cache_dev = array();
+$ignores = array('.', '..', '.git', '.gitignore', '*.swp');
+if ($argc > 3) {
+    for ($i = 3; $i < $argc; $i++) {
+        $ignores[] = $argv[$i];
+    }
+}
+$updates = array();
+$moved_from_git = $moved_from_dev = false;
+
+for (;;) {
+    $updates = array();
+    $moved_from_git = $moved_from_dev = false;
+    clearstatcache();
+    check_dir($git_dir, $cache_git, $git_dir, $dev_dir, $updates);
+    //clearstatcache();
+    //check_dir($dev_dir, $lastsync_dev, $dev_dir, $git_dir, $updates);
+    //$lastsync_dev = time();
+    sleep(1);
+}

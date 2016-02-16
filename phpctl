@@ -1,0 +1,15 @@
+#!/bin/zsh
+
+VER="5.6"
+FUNC=$1
+if [ $# -eq 2 ]; then
+	VER=$1
+	FUNC=$2
+fi
+#CMD="/usr/local/sbin/php${VER/./}-fpm -D -y /usr/local/etc/php/$VER/php-fpm.conf -p /usr/local/var -c /usr/local/etc/php/$VER -g $PID"
+#CMD="/usr/local/sbin/php${VER/./}-fpm $FUNC"
+if [ $VER = 'hhvm' ]; then
+	hhvm -m daemon -c /usr/local/etc/hhvm/php.ini -c /usr/local/etc/hhvm/server.ini
+else
+	php${VER/./}-fpm $FUNC
+fi
